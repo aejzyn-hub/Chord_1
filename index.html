@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mémo Accords</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0d1117; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    const ALL_CHORDS = [
+      { name: "Do Maj",   notes: "Do · Mi · Sol",       type: "maj",   base: "Do"  },
+      { name: "Ré Maj",   notes: "Ré · Fa♯ · La",       type: "maj",   base: "Ré"  },
+      { name: "Mi Maj",   notes: "Mi · Sol♯ · Si",       type: "maj",   base: "Mi"  },
+      { name: "Fa Maj",   notes: "Fa · La · Do",         type: "maj",   base: "Fa"  },
+      { name: "Sol Maj",  notes: "Sol · Si · Ré",        type: "maj",   base: "Sol" },
+      { name: "La Maj",   notes: "La · Do♯ · Mi",        type: "maj",   base: "La"  },
+      { name: "Si Maj",   notes: "Si · Ré♯ · Fa♯",      type: "maj",   base: "Si"  },
+      { name: "Do min",   notes: "Do · Mi♭ · Sol",       type: "min",   base: "Do"  },
+      { name: "Ré min",   notes: "Ré · Fa · La",         type: "min",   base: "Ré"  },
+      { name: "Mi min",   notes: "Mi · Sol · Si",        type: "min",   base: "Mi"  },
+      { name: "Fa min",   notes: "Fa · La♭ · Do",        type: "min",   base: "Fa"  },
+      { name: "Sol min",  notes: "Sol · Si♭ · Ré",       type: "min",   base: "Sol" },
+      { name: "La min",   notes: "La · Do · Mi",         type: "min",   base: "La"  },
+      { name: "Si min",   notes: "Si · Ré · Fa♯",        type: "min",   base: "Si"  },
+      { name: "Do♯ Maj",  notes: "Do♯ · Fa · Sol♯",     type: "sharp", base: "Do"  },
+      { name: "Ré♯ Maj",  notes: "Ré♯ · Sol · La♯",     type: "sharp", base: "Ré"  },
+      { name: "Fa♯ Maj",  notes: "Fa♯ · La♯ · Do♯",     type: "sharp", base: "Fa"  },
+      { name: "Sol♯ Maj", notes: "Sol♯ · Do · Ré♯",     type: "sharp", base: "Sol" },
+      { name: "La♯ Maj",  notes: "La♯ · Ré · Fa",       type: "sharp", base: "La"  },
+      { name: "Ré♭ Maj",  notes: "Ré♭ · Fa · La♭",      type: "flat",  base: "Ré"  },
+      { name: "Mi♭ Maj",  notes: "Mi♭ · Sol · Si♭",     type: "flat",  base: "Mi"  },
+      { name: "Sol♭ Maj", notes: "Sol♭ · Si♭ · Ré♭",    type: "flat",  base: "Sol" },
+      { name: "La♭ Maj",  notes: "La♭ · Do · Mi♭",      type: "flat",  base: "La"  },
+      { name: "Si♭ Maj",  notes: "Si♭ · Ré · Fa",       type: "flat",  base: "Si"  },
+    ];
+
+    const shuffle = arr => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+
+    const C = {
+      bg: "#0d1117", card: "#161b22", panel: "#0f3460",
+      accent: "#e94560", gold: "#ffd700", white: "#f0f0f0",
+      green: "#2ecc71", red: "#e74c3c", muted: "#8b949e",
+      border: "#30363d",
+    };
+
+    const btn = (active, color = C.accent) => ({
+      border: `2px solid ${active ? color : C.border}`,
+      background: active ? `${color}22` : "transparent",
+      borderRadius: 10, cursor: "pointer", transition: "all .2s",
+      color: C.white,
+    });
+
+    function ChordGame() {
+      const [screen, setScreen] = useState("start");
+      const [mode, setMode] = useState(1);
+      const [types, setTypes] = useState({ maj: true, min: false, sharp: false, flat: false });
+      const [total, setTotal] = useState(10);
+      const [questions, setQuestions] = useState([]);
+      const [current, setCurrent] = useState(0);
+      const [score, setScore] = useState(0);
+      const [selected, setSelected] = useState(null);
+      const [options, setOptions] = useState([]);
+
+      const pool = useMemo(() => ALL_CHORDS.filter(c => types[c.type]), [types]);
+
+      const buildOptions = (q) => {
+        const sameBase = ALL_CHORDS.filter(c => c.base === q.base && c.name !== q.name);
+        const wrongs = shuffle(sameBase).slice(0, 2);
+        if (wrongs.length < 2) {
+          const extra = shuffle(ALL_CHORDS.filter(c => c.name !== q.name && !wrongs.some(w => w.name === c.name)))
+            .slice(0, 2 - wrongs.length);
+          wrongs.push(...extra);
+        }
+        return shuffle([q, ...wrongs]);
+      };
+
+      const startGame = () => {
+        if (pool.length < 3) return;
+        const qs = shuffle(pool);
+        const allQs = Array.from({ length: total }, (_, i) => qs[i % qs.length]);
+        setQuestions(allQs);
+        setCurrent(0);
+        setScore(0);
+        setSelected(null);
+        setOptions(buildOptions(allQs[0]));
+        setScreen("game");
+      };
+
+      const handleAnswer = chord => {
+        if (selected) return;
+        setSelected(chord.name);
+        if (chord.name === questions[current].name) setScore(s => s + 1);
+      };
+
+      const nextQ = () => {
+        const next = current + 1;
+        if (next >= questions.length) { setScreen("end"); return; }
+        setCurrent(next);
+        setOptions(buildOptions(questions[next]));
+        setSelected(null);
+      };
+
+      if (screen === "start") return (
+        <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Segoe UI', sans-serif" }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: "36px 32px", maxWidth: 460, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,.6)" }}>
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <div style={{ fontSize: 52 }}>🎹</div>
+              <h1 style={{ color: C.white, margin: "8px 0 4px", fontSize: 26, fontWeight: 800 }}>Mémo Accords</h1>
+              <p style={{ color: C.muted, margin: 0, fontSize: 14 }}>Mémorise les accords de piano en jouant</p>
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ color: C.gold, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Mode d'entraînement</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                {[
+                  { v: 1, icon: "🎵→🎼", label: "Nom → Notes", sub: "Voir l'accord, trouver les notes" },
+                  { v: 2, icon: "🎼→🎵", label: "Notes → Nom", sub: "Voir les notes, trouver l'accord" },
+                ].map(m => (
+                  <div key={m.v} onClick={() => setMode(m.v)} style={{ ...btn(mode === m.v), flex: 1, padding: "14px 10px", textAlign: "center" }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{m.icon}</div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{m.label}</div>
+                    <div style={{ color: C.muted, fontSize: 11, marginTop: 3 }}>{m.sub}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ color: C.gold, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Accords à travailler</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  { key: "maj", label: "Majeurs", icon: "🎵" },
+                  { key: "min", label: "Mineurs", icon: "🎶" },
+                  { key: "sharp", label: "Dièses ♯", icon: "🔺" },
+                  { key: "flat", label: "Bémols ♭", icon: "🔻" },
+                ].map(t => (
+                  <div key={t.key} onClick={() => setTypes(p => ({ ...p, [t.key]: !p[t.key] }))}
+                    style={{ ...btn(types[t.key]), padding: "11px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                      border: `2px solid ${types[t.key] ? C.accent : C.border}`,
+                      background: types[t.key] ? C.accent : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11
+                    }}>{types[t.key] ? "✓" : ""}</div>
+                    <span style={{ fontSize: 13 }}>{t.icon} {t.label}</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ color: pool.length < 3 ? C.red : C.muted, fontSize: 12, margin: "8px 0 0" }}>
+                {pool.length} accord{pool.length > 1 ? "s" : ""} disponible{pool.length > 1 ? "s" : ""}
+                {pool.length < 3 ? " — minimum 3 requis" : ""}
+              </p>
+            </div>
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ color: C.gold, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Nombre d'exercices</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[5, 10, 15, 20].map(n => (
+                  <button key={n} onClick={() => setTotal(n)} style={{
+                    flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 15, fontWeight: total === n ? 800 : 400, cursor: "pointer",
+                    border: `2px solid ${total === n ? C.accent : C.border}`,
+                    background: total === n ? C.accent : "transparent", color: C.white, transition: "all .2s"
+                  }}>{n}</button>
+                ))}
+              </div>
+            </div>
+            <button onClick={startGame} disabled={pool.length < 3} style={{
+              width: "100%", padding: 16, borderRadius: 12, border: "none",
+              background: pool.length >= 3 ? C.accent : "#333", color: C.white,
+              fontSize: 17, fontWeight: 800, cursor: pool.length >= 3 ? "pointer" : "not-allowed", letterSpacing: .5
+            }}>🎹 Commencer</button>
+          </div>
+        </div>
+      );
+
+      if (screen === "game") {
+        const q = questions[current];
+        const question = mode === 1 ? q.name : q.notes;
+        const getLabel = c => mode === 1 ? c.notes : c.name;
+        const isCorrect = selected === q.name;
+
+        const optColor = c => {
+          if (!selected) return C.panel;
+          if (c.name === q.name) return "#1a4731";
+          if (c.name === selected) return "#4a1a1a";
+          return "#1a1a2e";
+        };
+        const optBorder = c => {
+          if (!selected) return C.border;
+          if (c.name === q.name) return C.green;
+          if (c.name === selected) return C.red;
+          return "#222";
+        };
+        const optIcon = (c, i) => {
+          if (!selected) return String.fromCharCode(65 + i);
+          if (c.name === q.name) return "✓";
+          if (c.name === selected) return "✗";
+          return String.fromCharCode(65 + i);
+        };
+
+        return (
+          <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Segoe UI', sans-serif" }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: "32px 28px", maxWidth: 460, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,.6)" }}>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", color: C.muted, fontSize: 13, marginBottom: 8 }}>
+                  <span>Question {current + 1} / {total}</span>
+                  <span style={{ color: C.gold, fontWeight: 700 }}>⭐ {score} pt{score > 1 ? "s" : ""}</span>
+                </div>
+                <div style={{ height: 5, background: "#21262d", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${((current + 1) / total) * 100}%`, background: C.accent, borderRadius: 3, transition: "width .4s" }} />
+                </div>
+              </div>
+              <div style={{ textAlign: "center", marginBottom: 12 }}>
+                <span style={{ background: "#1c2333", color: "#79c0ff", padding: "4px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  {mode === 1 ? "🎵 Trouver les notes" : "🎼 Trouver le nom de l'accord"}
+                </span>
+              </div>
+              <div style={{ textAlign: "center", margin: "20px 0", padding: "28px 20px", background: C.panel, borderRadius: 16, border: `1px solid ${C.border}` }}>
+                <div style={{ color: C.muted, fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>
+                  {mode === 1 ? "Nom de l'accord" : "Notes de l'accord"}
+                </div>
+                <div style={{ color: C.white, fontSize: 38, fontWeight: 900, letterSpacing: 3 }}>{question}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                {options.map((c, i) => (
+                  <button key={i} onClick={() => handleAnswer(c)} style={{
+                    padding: "16px 20px", borderRadius: 12, border: `2px solid ${optBorder(c)}`,
+                    background: optColor(c), color: C.white, cursor: selected ? "default" : "pointer",
+                    fontSize: 16, fontWeight: 600, textAlign: "left", display: "flex", alignItems: "center",
+                    gap: 14, transition: "all .2s"
+                  }}>
+                    <span style={{
+                      width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                      background: selected && c.name === q.name ? C.green : selected && c.name === selected ? C.red : "#ffffff18",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800
+                    }}>{optIcon(c, i)}</span>
+                    {getLabel(c)}
+                  </button>
+                ))}
+              </div>
+              {selected && (
+                <div>
+                  <div style={{
+                    padding: "14px 18px", borderRadius: 12, textAlign: "center",
+                    background: isCorrect ? "#1a3a2a" : "#3a1a1a",
+                    border: `1px solid ${isCorrect ? C.green : C.red}`,
+                    marginBottom: 12
+                  }}>
+                    <div style={{ color: C.white, fontWeight: 800, fontSize: 18 }}>
+                      {isCorrect ? "🎉 Bravo !" : "❌ Pas tout à fait..."}
+                    </div>
+                    {!isCorrect && (
+                      <div style={{ color: "#ccc", fontSize: 14, marginTop: 6 }}>
+                        Bonne réponse : <strong style={{ color: C.green }}>{mode === 1 ? q.notes : q.name}</strong>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={nextQ} style={{
+                    width: "100%", padding: 14, borderRadius: 12, border: "none",
+                    background: C.accent, color: C.white, fontSize: 16, fontWeight: 800, cursor: "pointer"
+                  }}>
+                    {current + 1 >= total ? "🏁 Voir les résultats" : "Question suivante →"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      if (screen === "end") {
+        const pct = Math.round((score / total) * 100);
+        const [emoji, msg] =
+          pct >= 80 ? ["🏆", "Excellent ! Tu maîtrises bien tes accords !"] :
+          pct >= 60 ? ["👍", "Bon travail ! Continue à pratiquer."] :
+                      ["💪", "Continue à t'entraîner, tu vas y arriver !"];
+        const barColor = pct >= 80 ? C.green : pct >= 60 ? C.gold : C.red;
+
+        return (
+          <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Segoe UI', sans-serif" }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: "40px 32px", maxWidth: 420, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,.6)", textAlign: "center" }}>
+              <div style={{ fontSize: 70, marginBottom: 12 }}>{emoji}</div>
+              <h2 style={{ color: C.white, fontSize: 26, margin: "0 0 6px", fontWeight: 800 }}>Session terminée !</h2>
+              <p style={{ color: C.muted, marginBottom: 28, fontSize: 15 }}>{msg}</p>
+              <div style={{ background: C.panel, borderRadius: 16, padding: 28, marginBottom: 28, border: `1px solid ${C.border}` }}>
+                <div style={{ color: C.gold, fontSize: 60, fontWeight: 900, lineHeight: 1 }}>{score}<span style={{ fontSize: 28, color: C.muted }}>/{total}</span></div>
+                <div style={{ color: C.muted, marginTop: 6, fontSize: 15 }}>{pct}% de bonnes réponses</div>
+                <div style={{ height: 10, background: "#0d1117", borderRadius: 5, marginTop: 16, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 5, transition: "width 1s" }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={startGame} style={{
+                  flex: 1, padding: 14, borderRadius: 12, border: "none",
+                  background: C.accent, color: C.white, fontSize: 15, fontWeight: 800, cursor: "pointer"
+                }}>🔄 Rejouer</button>
+                <button onClick={() => setScreen("start")} style={{
+                  flex: 1, padding: 14, borderRadius: 12, border: `2px solid ${C.border}`,
+                  background: "transparent", color: C.white, fontSize: 15, fontWeight: 700, cursor: "pointer"
+                }}>⚙️ Paramètres</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<ChordGame />);
+  </script>
+</body>
+</html>
